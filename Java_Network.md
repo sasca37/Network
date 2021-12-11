@@ -8,45 +8,62 @@
   - ServerSocket (port) - waiting & accept()
   - 클라이언트의 요청이 와서 accept() 시 요청온 클라이언트용 소켓 추가 생성  
   - 송수신 버퍼 존재
+
 - Client
   - Socket ( Socket -> ServerSocket 연결 요청) - socket(ip, port)
   - 송수신 버퍼 존재
 
-``` java
-package network.echo;
+- 결과 
 
+  - <서버>
+    Connected client : 127.0.0.1 : 49706
+    Client's msg : sdas
+    Client's msg : null
+
+  - <클라이언트>
+    Connection is completed
+    Welcome to Echo server!!
+    Message : sdas
+    Echoed Message : sdas
+    Message : BYE
+    Disconnect 
+
+``` java
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Scanner;
 
 public class EchoServer {
     public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
         try {
-            // 클라이언트의 접속을 처리하는 서버소켓 생성. 포트번호 지정.
+            // 클라이언트의 접속을 처리하는 서버소켓 생성
             ServerSocket ss = new ServerSocket(8000);
-            //클라이언트의 접속을 대기
-            Socket client = ss.accept();
-            System.out.println("Connected client : " + client.getInetAddress().getHostAddress() + " : "
-                    + client.getPort());
-            // 데이터 송수신을 위한 입출력 객체 생성
-            BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
-            PrintWriter out = new PrintWriter(new OutputStreamWriter(client.getOutputStream()));
+            // 클라이언트 접속 대기
+            Socket clients = ss.accept();
+            System.out.println("Connected client : " + clients.getInetAddress()
+                    .getHostAddress()+" : " + clients.getPort());
 
+            //스트림 생성
+            BufferedReader in = new BufferedReader(new InputStreamReader(clients.getInputStream()));
+            PrintWriter out = new PrintWriter(new OutputStreamWriter(clients.getOutputStream()));
             // 데이터 송신
-            out.println("Welcome to Echo server!!"); // 송신 버퍼에 전달
-            out.flush(); // 송신 버퍼의 모든 데이터를 전송
+            out.println("Welcome to Echo server!!"); //송신 버퍼에 전달
+            out.flush();
 
-            while (true) {
-                // 클라이언트 메시지 수신 후 그대로 전송
+            while(true){
                 String msg = in.readLine();
                 System.out.println("Client's msg : " + msg);
                 if(msg.equals("BYE") || msg == null) break;
                 out.println(msg);
+                out.flush();
             }
-            client.close();
+            clients.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
+
     }
 }
 
@@ -63,27 +80,24 @@ public class EchoClient {
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
         try {
-            // IP 주소, 포트번호로 서버에 접속 요청
             Socket s = new Socket("127.0.0.1", 8000);
-            System.out.println("Connection is completed.");
+            System.out.println("Connection is completed");
 
-            // 데이터 송수신을 위한 입출력 객체 생성
             BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
             PrintWriter out = new PrintWriter(new OutputStreamWriter(s.getOutputStream()));
-
-            String data = in.readLine(); //수신
+            String data = in.readLine();
             System.out.println(data);
             while (true) {
-                System.out.println("Message : ");
+                System.out.print("Message : ");
                 String msg = sc.nextLine();
-                if (msg.equals("BYE")) break;
+                if(msg.equals("BYE")) break;
                 out.println(msg);
                 out.flush();
                 msg = in.readLine();
                 System.out.println("Echoed Message : " + msg);
             }
-            System.out.println("Disconnect...");
-            s.close(); // 연결 종료 요청
+            System.out.println("Disconnect ");
+            s.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -95,6 +109,8 @@ public class EchoClient {
 
 
 ## Thread
+
+- Thread란 하나의 프로세스 내부에서 독립적으로 실행되는 하나의 작업 단위
 
 - Thread 기반 서버 
   - 클라이언트와 서버 간 양방향 송수신을 위한 스트림 채널이 필요 
@@ -361,5 +377,248 @@ public class UDPEchoClient {
     }
 }
 
+```
+
+
+
+## Java NIO
+
+<img width="500" alt="image" src="https://user-images.githubusercontent.com/81945553/145674127-c519350b-d84a-4d0f-868b-442c5601792b.png">
+
+- 기존의 쓰레드 방식은 쓰레드가 많아질수록 비효율적이지만, 셀렉터 기반 Channel + Buffer를 통해 해결가능 
+- 스트림 방식인 서버소켓이 아닌 NIO에서 지원하는 서버소켓채널을 사용 
+
+### Buffer 
+
+- I / O 를 위한 메모리 공간 
+- 버퍼 생성 (다이렉트 , 넌다이렉트) 
+  - 다이렉트 : 운영체제가 메모리 할당 
+    - 공간이 큼 - 메인메모리 전체에서 할당 받기 때문
+    - 주로 읽기 / 쓰기가 많은 경우엔 다이렉트 버퍼가 유리
+    - ByteBuffer.allocateDirect(20);
+  - 넌다이렉트 : JVM이 메모리 할당 
+    - 공간이 작음 - JVM에서 바로 처리하기 때문에 속도가 빠름
+    - 버퍼를 생성, 삭제가 빈번하면 유리 
+    - ByteBuffer.allocate(20);
+- 버퍼 기록 / 읽기  
+  - position : pointer와 같은 역할 
+  - capacity : 전체 공간 , limit : 쓸 수 있는 공간 (처음엔 capacity와 동일) 
+  - flip : 기록 / 읽기 변환 - 뒤집다라는 의미 , position을 0으로 초기화하고 limit은 현재 적힌 공간만큼으로 바뀜 
+  - rewind : position을 0으로 초기화 
+  - clear : position을 0으로 초기화 
+  - mark : 현재 포인터에 체크 포인트, reset 하면 마지막 mark자리로 position 이동  
+  - compact : 현재 까지 읽은 데이터를 지우고 앞으로 땡긴다. write상태로 바뀌며 , put 하면 현재포인터에 새 값이 채워짐
+  - put (쓰기)
+  - get (읽기)
+
+```java
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.IntBuffer;
+
+public class JavaNIO {
+    public static void printBuffer(ByteBuffer buffer) {
+        // 버퍼에 있는 데이터 출력
+        for (int i = 0; i < buffer.limit() - 1; i++) {
+            System.out.print(buffer.get(i) + ", ");
+        }
+        System.out.println(buffer.get(buffer.limit() - 1));
+        System.out.print("position : "+buffer.position()+", ");
+        System.out.print("limit : " + buffer.limit()+", ");
+        System.out.println("capacity : " + buffer.capacity());
+    }
+    public static void main(String[] args) {
+        // 버퍼생성 - allocate 방식
+        ByteBuffer buf = ByteBuffer.allocate(20); // 넌다이렉트
+        ByteBuffer bufDir = ByteBuffer.allocateDirect(20); //다이렉트
+        CharBuffer cbuf = CharBuffer.allocate(20);
+        IntBuffer ibuf = IntBuffer.allocate(20);
+
+        // 버퍼생성 - wrap 방식
+        byte[] bytes = new byte[50];
+        ByteBuffer buf2 = ByteBuffer.wrap(bytes);
+
+        // 읽기/쓰기
+        buf.put((byte) 7);
+        buf.put((byte) 9);
+        buf.put((byte) 13);
+        buf.put((byte) 16);
+        printBuffer(buf);
+        buf.flip(); // 쓰기 -> 읽기, limit 갯수 변경, 포지션 초기화
+        printBuffer(buf);
+        buf.get(new byte[2]); // 2개 읽기 , position : 2
+        printBuffer(buf);
+        buf.mark(); // 현재 position 2에 mark기록
+        buf.get(new byte[2]); // 2개 읽기, position : 4
+        printBuffer(buf);
+        buf.reset(); // mark위치로 position 이동
+        printBuffer(buf);
+        buf.rewind(); // position : 0 초기화
+        printBuffer(buf);
+        buf.get(new byte[2]); // position : 2
+        buf.compact(); // 2개를 지우고 앞으로 땡김, 기록상태로 바뀜
+        printBuffer(buf);
+        buf.put((byte) 22);
+        buf.put((byte) 22);
+        buf.put((byte) 22);
+        buf.put((byte) 22);
+        printBuffer(buf);
+        buf.clear();
+        printBuffer(buf);
+    }
+}
+```
+
+
+
+### TCP (NIO)
+
+```java
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
+import java.util.Date;
+
+import static java.lang.Thread.sleep;
+
+public class TimeServer {
+    public static void main(String[] args) {
+        System.out.println("Time Server is started.");
+        try {
+            ServerSocketChannel sschannel = ServerSocketChannel.open();
+            // blocking 모드로 동작 (클라이언트 연결이 올 때까지 기다림)
+            sschannel.configureBlocking(true);
+            sschannel.socket().bind(new InetSocketAddress(5001)); // 포트 지정
+            while (true) {
+                System.out.println("Server is waiting for clients...");
+                SocketChannel client = sschannel.accept();
+                InetSocketAddress clientAddress = (InetSocketAddress) client.getRemoteAddress();
+                System.out.println("Connected. " + clientAddress.getAddress() + " " + clientAddress.getPort());
+                // Buffer creation
+                ByteBuffer buf = ByteBuffer.allocate(64); // JVM
+                for (int i = 0; i < 10; i++) {
+                    String message = "Date: " + new Date(System.currentTimeMillis());
+                    buf.clear(); // 이전에 입력한 데이터 삭제. position = 0, limit = capacity
+                    buf.put(message.getBytes());
+                    buf.flip(); // w -> r
+                    while (buf.hasRemaining()) client.write(buf);
+                    System.out.println("Sent: " + message);
+                    sleep(1000);
+                }
+                client.close();
+
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+``` java
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
+
+import static java.lang.Thread.sleep;
+
+public class TimeClient {
+    public static void main(String[] args) {
+        System.out.println("Time client is started");
+        try {
+            SocketAddress address = new InetSocketAddress("127.0.0.1", 5001);
+            SocketChannel schannel = SocketChannel.open(address);
+            System.out.println("Connected.");
+            //Buffer creation
+            ByteBuffer buffer = ByteBuffer.allocate(64);
+            int bytes = schannel.read(buffer); // data receiving -> buffer
+            System.out.println(bytes + " bytes are received.");
+            while (bytes != -1) {
+                buffer.flip(); // w -> r
+//                while (buffer.hasRemaining()) System.out.print((char) buffer.get());
+                byte[] data = new byte[buffer.limit()];
+                buffer.get(data, 0, buffer.limit());
+                String msg = new String(data);
+                System.out.println(msg);
+                sleep(1000);
+                buffer.clear();
+                bytes = schannel.read(buffer);
+                System.out.println(bytes + " bytes are received.");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+
+
+### UDP(NIO)
+
+```java
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.DatagramChannel;
+
+public class UDPReceiver {
+    public static void main(String[] args) throws IOException {
+        InetSocketAddress address = new InetSocketAddress("127.0.0.1", 5005);
+        DatagramChannel channel = DatagramChannel.open();
+        channel.configureBlocking(true); // blocking mode
+        channel.socket().bind(address);
+
+        ByteBuffer buffer = ByteBuffer.allocate(64);
+        while (true) {
+            channel.receive(buffer);
+            buffer.flip();
+            byte[] data = new byte[buffer.limit()];
+            buffer.get(data, 0, buffer.limit());
+            String msg = new String(data);
+            if(msg.equalsIgnoreCase("quit")) break;
+            System.out.println(msg);
+            buffer.clear();
+        }
+    }
+}
+
+```
+
+```java
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.DatagramChannel;
+import java.util.Scanner;
+
+public class UDPSender {
+    private static Scanner sc = new Scanner(System.in);
+    public static void main(String[] args) throws IOException {
+        DatagramChannel channel = DatagramChannel.open();
+        ByteBuffer buffer = ByteBuffer.allocate(64);
+        InetSocketAddress address = new InetSocketAddress("127.0.0.1", 5005);
+        while (true) {
+            String msg;
+            System.out.print("Message: ");
+            msg = sc.nextLine();
+            buffer.put(msg.getBytes());
+            buffer.flip();
+            channel.send(buffer, address);
+            buffer.clear();
+            if (msg.equalsIgnoreCase("quit")) break;
+        }
+    }
+}
 ```
 
