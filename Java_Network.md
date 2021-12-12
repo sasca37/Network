@@ -5,6 +5,7 @@
 ### Echo
 
 - Server
+
   - ServerSocket (port) - waiting & accept()
   - 클라이언트의 요청이 와서 accept() 시 요청온 클라이언트용 소켓 추가 생성  
   - 송수신 버퍼 존재
