@@ -406,7 +406,7 @@ public class UDPEchoClient {
   - capacity : 전체 공간 , limit : 쓸 수 있는 공간 (처음엔 capacity와 동일) 
   - flip : 기록 / 읽기 변환 - 뒤집다라는 의미 , position을 0으로 초기화하고 limit은 현재 적힌 공간만큼으로 바뀜 
   - rewind : position을 0으로 초기화 
-  - clear : position을 0으로 초기화 
+  - clear : position을 0으로 초기화 및 limit을 capacity로 초기화 (단, 그전에 읽은 값이 있다면 그건 유지)
   - mark : 현재 포인터에 체크 포인트, reset 하면 마지막 mark자리로 position 이동  
   - compact : 현재 까지 읽은 데이터를 지우고 앞으로 땡긴다. write상태로 바뀌며 , put 하면 현재포인터에 새 값이 채워짐
   - put (쓰기)
